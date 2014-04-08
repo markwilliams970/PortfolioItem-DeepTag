@@ -9,6 +9,8 @@ Ext.define('CustomApp', {
 
     _tagPicker: null,
     _featurePicker: null,
+    _proceedDialog: null,
+    _noFeatureDialog: null,
     _typeFeature: "/PortfolioItem/Feature",
 
     _selectedFeatures: [],
@@ -46,7 +48,12 @@ Ext.define('CustomApp', {
 
         this._tagPicker = Ext.create('Rally.ui.picker.TagPicker', {
             fieldLabel: 'Select Tags',
-            autoExpand: false
+            autoExpand: false,
+            listeners: {
+                click: function() {
+                    me._getSelectedTags();
+                }
+            }
         });
         this.down('#choosers').add(this._tagPicker);
 
@@ -54,15 +61,14 @@ Ext.define('CustomApp', {
             xtype: 'rallybutton',
             text: 'Apply Tags to Feature Hierarchy',
             handler: function() {
-                me._nullOutExistingData();
-                me._hydrateData();
+                me._confirmAction();
             }
         });
     },
 
     _getPITypes: function() {
 
-        console.log('_getPITypes');
+        //console.log('_getPITypes');
         var me = this;
 
         var piDataStore = Ext.create('Rally.data.wsapi.Store', {
@@ -105,6 +111,48 @@ Ext.define('CustomApp', {
             me._selectedTagsByName[tagName] = tag;
             me._selectedTagNames.push(tagName);
         });
+
+        //console.log(me._selectedTags);
+    },
+
+    _confirmAction: function() {
+
+        var me = this;
+
+        me._getSelectedFeatures();
+        me._getSelectedTags();
+
+        if (me._selectedFeatures.length === 0) {
+            me._noSelectionsNotify();
+            return;
+        }
+
+        if (me._selectedTags.length === 0) {
+            //console.log("No Selected Tags");
+            me._nullOutTagsFlag = true;
+        }
+
+        var message = "This will _add_ selected Tags to all Artifacts (Stories, Defects, Tasks) Under chosen Features. Proceed?";
+        var confirmLabel = "Bulk Tag Hierarchy";
+        if (me._nullOutTagsFlag) {
+            message = "This will _remove_ all Tags from all Artifacts (Stories, Defects, Tasks) Under chosen Features. Proceed?";
+            confirmLabel = "Clear _all_ Tags from Hierarchy";
+        }
+
+        if (me._proceedDialog) {
+            me._proceedDialog.destroy();
+        }
+
+        Ext.create('Rally.ui.dialog.ConfirmDialog', {
+            message: message,
+            confirmLabel: confirmLabel,
+            listeners: {
+                confirm: function(){
+                    me._nullOutExistingData();
+                    me._hydrateData();
+                }
+            }
+        });
     },
 
     _nullOutExistingData: function() {
@@ -122,21 +170,21 @@ Ext.define('CustomApp', {
         me._artifactTagsByOid = {};
     },
 
+    _nullOutSelectionData: function() {
+
+        var me = this;
+
+        me._selectedFeatures = [];
+        me._selectedTags = [];
+        me._selectedTagNames = [];
+        me._selectedTagsByName = {};
+        me._nullOutTagsFlag = false;
+        me._statusContent = null;
+    },
+
     _hydrateData: function() {
 
         var me = this;
-        me._getSelectedFeatures();
-        me._getSelectedTags();
-
-        if (me._selectedFeatures.length === 0) {
-            me._noSelectionsNotify();
-            return;
-        }
-
-        if (me._selectedTags.length === 0) {
-            console.log("No Selected Tags");
-            me._nullOutTagsFlag = true;
-        }
 
         var hydrateFeaturesPromise = function() {
             return me._hydrateFeatures(me);
@@ -217,13 +265,13 @@ Ext.define('CustomApp', {
     },
 
     _hydrateFeatures: function(scope) {
-        console.log('_hydrateFeatures');
+        //console.log('_hydrateFeatures');
         var me = scope;
         me.setLoading('Loading Features.');
         var promises = [];
         var deferred = Ext.create('Deft.Deferred');
         Ext.Array.each(me._selectedFeatures, function(feature) {
-            console.log(feature.get('_stories'));
+            //console.log(feature.get('_stories'));
             promises.push(me._hydrateArtifact(feature.get('ObjectID'), me._typeFeature, me));
         });
 
@@ -237,7 +285,7 @@ Ext.define('CustomApp', {
     },
 
     _hydrateStories: function(scope) {
-        console.log('_hydrateStories');
+        //console.log('_hydrateStories');
         var me = scope;
         me.setLoading('Loading Stories');
         var promises = [];
@@ -261,7 +309,7 @@ Ext.define('CustomApp', {
     },
 
     _hydrateStoryTasks: function(scope) {
-        console.log('_hydrateStoryTasks');
+        //console.log('_hydrateStoryTasks');
         var me = scope;
         me.setLoading('Loading Tasks of Stories.');
         var promises = [];
@@ -275,7 +323,7 @@ Ext.define('CustomApp', {
             Deft.Promise.all(promises).then({
                 success: function(results) {
                     me._hydratedStoryTasks = results;
-                    console.log(results);
+                    //console.log(results);
                     deferred.resolve([]);
                 }
             });
@@ -287,7 +335,7 @@ Ext.define('CustomApp', {
     },
 
     _getStoriesCollection: function(scope) {
-        console.log('_getStoriesCollection');
+        //console.log('_getStoriesCollection');
         var me = scope;
         var promises = [];
         var deferred = Ext.create('Deft.Deferred');
@@ -297,8 +345,8 @@ Ext.define('CustomApp', {
 
         Deft.Promise.all(promises).then({
             success: function(results) {
-                console.log('_getStoriesCollection Resolve');
-                console.log(results);
+                //console.log('_getStoriesCollection Resolve');
+                //console.log(results);
                 deferred.resolve(results);
             }
         });
@@ -307,7 +355,7 @@ Ext.define('CustomApp', {
     },
 
     _getStoryTaskCollections: function(scope) {
-        console.log('_getStoryTaskCollections');
+        //console.log('_getStoryTaskCollections');
         var me = scope;
         var promises = [];
         var deferred = Ext.create('Deft.Deferred');
@@ -319,8 +367,8 @@ Ext.define('CustomApp', {
 
             Deft.Promise.all(promises).then({
                 success: function(results) {
-                    console.log('_getStoryTaskCollections Resolve');
-                    console.log(results);
+                    //console.log('_getStoryTaskCollections Resolve');
+                    //console.log(results);
                     deferred.resolve([]);
                 }
             });
@@ -330,7 +378,7 @@ Ext.define('CustomApp', {
     },
 
     _getStoryDefectsCollection: function(scope) {
-        console.log('_getStoryDefectsCollection');
+        //console.log('_getStoryDefectsCollection');
         var me = scope;
         var promises = [];
         var deferred = Ext.create('Deft.Deferred');
@@ -342,8 +390,8 @@ Ext.define('CustomApp', {
 
             Deft.Promise.all(promises).then({
                 success: function(results) {
-                    console.log('_getStoryDefectsCollection Resolve');
-                    console.log(results);
+                    //console.log('_getStoryDefectsCollection Resolve');
+                    //console.log(results);
                     deferred.resolve([]);
                 }
             });
@@ -353,7 +401,7 @@ Ext.define('CustomApp', {
     },
 
     _hydrateStoryDefects: function(scope) {
-        console.log('_hydrateStoryDefects');
+        //console.log('_hydrateStoryDefects');
         var me = scope;
         me.setLoading("Loading Defects of Stories.");
         var promises = [];
@@ -367,7 +415,7 @@ Ext.define('CustomApp', {
             Deft.Promise.all(promises).then({
                 success: function(results) {
                     me._hydratedStoryDefects = results;
-                    console.log(results);
+                    //console.log(results);
                     deferred.resolve([]);
                 }
             });
@@ -378,7 +426,7 @@ Ext.define('CustomApp', {
     },
 
     _getDefectTaskCollections: function(scope) {
-        console.log('_getDefectTaskCollections');
+        //console.log('_getDefectTaskCollections');
         var me = scope;
         var promises = [];
         var deferred = Ext.create('Deft.Deferred');
@@ -390,8 +438,8 @@ Ext.define('CustomApp', {
 
             Deft.Promise.all(promises).then({
                 success: function(results) {
-                    console.log('_getDefectTaskCollections Resolve');
-                    console.log(results);
+                    //console.log('_getDefectTaskCollections Resolve');
+                    //console.log(results);
                     deferred.resolve([]);
                 }
             });
@@ -401,7 +449,7 @@ Ext.define('CustomApp', {
     },
 
     _hydrateDefectTasks: function(scope) {
-        console.log('_hydrateStoryTasks');
+        //console.log('_hydrateStoryTasks');
         var me = scope;
         me.setLoading("Loading Tasks of Defects");
         var promises = [];
@@ -415,7 +463,7 @@ Ext.define('CustomApp', {
             Deft.Promise.all(promises).then({
                 success: function(results) {
                     me._hydratedDefectTasks = results;
-                    console.log(results);
+                    //console.log(results);
                     deferred.resolve([]);
                 }
             });
@@ -426,12 +474,12 @@ Ext.define('CustomApp', {
     },
 
     _hydrateArtifactCollection: function(artifact, collectionName, scope, oidsArray) {
-        console.log('_hydrateArtifactCollection');
+        //console.log('_hydrateArtifactCollection');
         var deferred                = Ext.create('Deft.Deferred');
         var me                      = scope;
 
         var artifactRef             = artifact.get('_ref');
-        console.log(artifactRef);
+        //console.log(artifactRef);
         var artifactObjectID        = artifact.get('ObjectID');
         var artifactFormattedID     = artifact.get('FormattedID');
         var artifactName            = artifact.get('Name');
@@ -443,8 +491,8 @@ Ext.define('CustomApp', {
         artifactCollection.load({
             callback: function(records, operation, success) {
                 Ext.Array.each(records, function(record) {
-                    console.log("artifactCollection.load");
-                    console.log(record.get("ObjectID"));
+                    //console.log("artifactCollection.load");
+                    //console.log(record.get("ObjectID"));
                     oidsArray.push(record.get("ObjectID"));
                 });
                 deferred.resolve([]);
@@ -454,8 +502,8 @@ Ext.define('CustomApp', {
     },
 
     _hydrateArtifact: function(artifactOid, type, scope) {
-        console.log('_hydrateArtifact');
-        console.log(artifactOid);
+        //console.log('_hydrateArtifact');
+        //console.log(artifactOid);
         var deferred = Ext.create('Deft.Deferred');
         var me = scope;
 
@@ -475,7 +523,7 @@ Ext.define('CustomApp', {
     },
 
     _combineHydratedArtifacts: function(scope) {
-        console.log('_combineHydratedArtifacts');
+        //console.log('_combineHydratedArtifacts');
         var me = scope;
 
         Ext.Array.each(me._hydratedFeatures, function(feature){
@@ -503,11 +551,11 @@ Ext.define('CustomApp', {
             me._hydratedArtifactsByOid[oid] = task;
         });
 
-        console.log(me._hydratedArtifactsByOid);
+        //console.log(me._hydratedArtifactsByOid);
     },
 
     _hydrateAllArtifactTags: function(scope) {
-        console.log('_hydrateAllArtifactTags');
+        //console.log('_hydrateAllArtifactTags');
         var me = scope;
         me.setLoading('Loading Existing Tags of Artifacts.');
         var deferred = Ext.create('Deft.Deferred');
@@ -519,7 +567,7 @@ Ext.define('CustomApp', {
 
         Deft.Promise.all(promises).then({
             success: function(results) {
-                console.log(me._artifactTagsByOid);
+                //console.log(me._artifactTagsByOid);
                 deferred.resolve([]);
             }
         });
@@ -527,7 +575,7 @@ Ext.define('CustomApp', {
     },
 
     _hydrateArtifactTags: function(artifactOid, scope) {
-        console.log('_hydrateArtifactTags');
+        //console.log('_hydrateArtifactTags');
         var deferred                = Ext.create('Deft.Deferred');
         var me                      = scope;
         var artifact                = me._hydratedArtifactsByOid[artifactOid];
@@ -546,7 +594,7 @@ Ext.define('CustomApp', {
     },
 
     _tagAllArtifacts: function(scope) {
-        console.log('_tagAllArtifacts');
+        //console.log('_tagAllArtifacts');
         var deferred                = Ext.create('Deft.Deferred');
         var me                      = scope;
         me.setLoading('Tagging Artifact Hierarchy');
@@ -565,7 +613,7 @@ Ext.define('CustomApp', {
     },
 
     _tagArtifact: function(artifactOid, artifact, scope) {
-        console.log('_tagArtifact');
+        //console.log('_tagArtifact');
 
         var deferred                = Ext.create('Deft.Deferred');
         var me = scope;
@@ -587,7 +635,7 @@ Ext.define('CustomApp', {
             tagNamesToApply = existingTagNames;
 
             Ext.Array.each(me._selectedTagNames, function(selectedTagName) {
-                console.log(selectedTagName);
+                //console.log(selectedTagName);
                 if (existingTagNames.indexOf(selectedTagName) === -1) {
                     var selectedTag = me._selectedTagsByName[selectedTagName];
                     tagsRefsToApply.push(selectedTag.get('_ref'));
@@ -596,13 +644,13 @@ Ext.define('CustomApp', {
             });
 
             newTagArray = _.map(tagsRefsToApply, function(ref) { return {_ref: ref}; });
-            console.log(newTagArray);
+            //console.log(tagNamesToApply);
         }
 
         artifact.set('Tags', newTagArray);
         artifact.save({
             callback: function(result, operation) {
-                console.log(operation.wasSuccessful());
+                //console.log(operation.wasSuccessful());
                 deferred.resolve(result);
             }
         });
@@ -613,6 +661,8 @@ Ext.define('CustomApp', {
         var me = scope;
         me.setLoading(false);
         me._finishedOperationNotify();
+        me._nullOutExistingData();
+        me._nullOutSelectionData();
     },
 
     _finishedOperationNotify: function() {
@@ -636,17 +686,22 @@ Ext.define('CustomApp', {
 
     _noSelectionsNotify: function(scope) {
 
-        if (this._statusContent) {
-            this._statusContent.destroy();
+        var me = this;
+
+        if (me._noFeatureDialog) {
+            me._noFeatureDialog.destroy();
         }
 
-        this._statusContent = Ext.create('Ext.container.Container', {
-            itemId: 'statuscontent',
-            xtype: 'container',
-            html: "Please select Features to Apply Tags To."
+        me._noFeatureDialog = Ext.create('Rally.ui.dialog.ConfirmDialog', {
+            title: "No Feature Selected.",
+            message: "Please Select a Feature for Tagging.",
+            confirmLabel: "Ok",
+            listeners: {
+                confirm: function(){
+                    return;
+                }
+            }
         });
-
-        this.down('#status').add(this._statusContent);
     }
 
 });
