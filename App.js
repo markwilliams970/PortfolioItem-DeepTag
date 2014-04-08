@@ -680,7 +680,7 @@ Ext.define('CustomApp', {
             html: "Finished!"
         });
 
-        me.down('#status').add(this._statusContent);
+        me.down('#status').add(me._statusContent);
 
     },
 
