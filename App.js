@@ -186,6 +186,10 @@ Ext.define('CustomApp', {
             return me._tagAllArtifacts(me);
         };
 
+        var finishedNotifyPromise = function() {
+            return me._finishedNotify(me);
+        };
+
         var promises = [
             hydrateFeaturesPromise,
             getStoriesCollectionPromise,
@@ -198,7 +202,8 @@ Ext.define('CustomApp', {
             hydrateDefectTasksPromise,
             combineHydratedArtifactsPromise,
             hydrateAllArtifactTagsPromise,
-            tagAllArtifactsPromise
+            tagAllArtifactsPromise,
+            finishedNotifyPromise
         ];
 
         Deft.Chain.sequence(promises).then({
@@ -214,6 +219,7 @@ Ext.define('CustomApp', {
     _hydrateFeatures: function(scope) {
         console.log('_hydrateFeatures');
         var me = scope;
+        me.setLoading('Loading Features.');
         var promises = [];
         var deferred = Ext.create('Deft.Deferred');
         Ext.Array.each(me._selectedFeatures, function(feature) {
@@ -233,6 +239,7 @@ Ext.define('CustomApp', {
     _hydrateStories: function(scope) {
         console.log('_hydrateStories');
         var me = scope;
+        me.setLoading('Loading Stories');
         var promises = [];
         var deferred = Ext.create('Deft.Deferred');
 
@@ -256,6 +263,7 @@ Ext.define('CustomApp', {
     _hydrateStoryTasks: function(scope) {
         console.log('_hydrateStoryTasks');
         var me = scope;
+        me.setLoading('Loading Tasks of Stories.');
         var promises = [];
         var deferred = Ext.create('Deft.Deferred');
 
@@ -347,6 +355,7 @@ Ext.define('CustomApp', {
     _hydrateStoryDefects: function(scope) {
         console.log('_hydrateStoryDefects');
         var me = scope;
+        me.setLoading("Loading Defects of Stories.");
         var promises = [];
         var deferred = Ext.create('Deft.Deferred');
 
@@ -394,6 +403,7 @@ Ext.define('CustomApp', {
     _hydrateDefectTasks: function(scope) {
         console.log('_hydrateStoryTasks');
         var me = scope;
+        me.setLoading("Loading Tasks of Defects");
         var promises = [];
         var deferred = Ext.create('Deft.Deferred');
 
@@ -419,7 +429,6 @@ Ext.define('CustomApp', {
         console.log('_hydrateArtifactCollection');
         var deferred                = Ext.create('Deft.Deferred');
         var me                      = scope;
-        console.log(me);
 
         var artifactRef             = artifact.get('_ref');
         console.log(artifactRef);
@@ -500,6 +509,7 @@ Ext.define('CustomApp', {
     _hydrateAllArtifactTags: function(scope) {
         console.log('_hydrateAllArtifactTags');
         var me = scope;
+        me.setLoading('Loading Existing Tags of Artifacts.');
         var deferred = Ext.create('Deft.Deferred');
         var promises = [];
 
@@ -539,10 +549,10 @@ Ext.define('CustomApp', {
         console.log('_tagAllArtifacts');
         var deferred                = Ext.create('Deft.Deferred');
         var me                      = scope;
+        me.setLoading('Tagging Artifact Hierarchy');
 
         var promises = [];
         Ext.iterate(me._hydratedArtifactsByOid, function(key, value) {
-            console.log(me);
             promises.push(me._tagArtifact(key, value, me));
         });
 
@@ -589,8 +599,6 @@ Ext.define('CustomApp', {
             console.log(newTagArray);
         }
 
-        me._tagOperationNotify(artifact, tagNamesToApply, me);
-
         artifact.set('Tags', newTagArray);
         artifact.save({
             callback: function(result, operation) {
@@ -601,18 +609,17 @@ Ext.define('CustomApp', {
         return deferred;
     },
 
-    _tagOperationNotify: function(artifact, tagNamesArray, scope) {
+    _finishedNotify: function(scope) {
+        var me = scope;
+        me.setLoading(false);
+        me._finishedOperationNotify();
+    },
+
+    _finishedOperationNotify: function() {
 
         var me = scope;
         var artifactLabel = artifact.get('FormattedID');
         var newTagNames = "Empty tags.";
-
-        if(tagNamesArray.length > 0) {
-            newTagNames = tagNamesArray.join(", ");
-        }
-
-        var tagStatus = "Tagging " + artifactLabel + ": " + newTagNames;
-
         if (me._statusContent) {
             me._statusContent.destroy();
         }
@@ -620,10 +627,10 @@ Ext.define('CustomApp', {
         me._statusContent = Ext.create('Ext.container.Container', {
             itemId: 'statuscontent',
             xtype: 'container',
-            html: tagStatus
+            html: "Finished!"
         });
 
-        me.down('#status').add(me._statusContent);
+        me.down('#status').add(this._statusContent);
 
     },
 
